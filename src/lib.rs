@@ -132,6 +132,7 @@ pub struct EguiMq {
     /// Pixels per point from egui. Can differ from native DPI because egui allows zooming.
     pixels_per_point: f32,
     egui_ctx: egui::Context,
+    egui_viewport_info: egui::ViewportInfo,
     egui_input: egui::RawInput,
     painter: painter::Painter,
     #[cfg(target_os = "macos")]
@@ -148,8 +149,9 @@ impl EguiMq {
             native_dpi_scale,
             pixels_per_point: native_dpi_scale,
             egui_ctx: egui::Context::default(),
-            painter: painter::Painter::new(mq_ctx),
+            egui_viewport_info: egui::ViewportInfo::default(),
             egui_input: egui::RawInput::default(),
+            painter: painter::Painter::new(mq_ctx),
             #[cfg(target_os = "macos")]
             clipboard: init_clipboard(),
             shapes: None,
@@ -172,12 +174,14 @@ impl EguiMq {
     ) {
         input::on_frame_start(&mut self.egui_input, &self.egui_ctx);
 
+        let viewport_id = &self.egui_input.viewport_id.clone();
+
         if self.native_dpi_scale != miniquad::window::dpi_scale() {
             // DPI scale change (maybe new monitor?). Tell egui to change:
             self.native_dpi_scale = miniquad::window::dpi_scale();
             self.egui_input
                 .viewports
-                .get_mut(&self.egui_input.viewport_id)
+                .get_mut(viewport_id)
                 .unwrap()
                 .native_pixels_per_point = Some(self.native_dpi_scale);
         }
@@ -191,8 +195,44 @@ impl EguiMq {
             textures_delta,
             shapes,
             pixels_per_point,
-            viewport_output: _viewport_output, // we only support one viewport
+            viewport_output,
         } = full_output;
+
+        // only grab the root viewport for now
+
+        let root_id = egui::viewport::ViewportId::ROOT;
+
+        if viewport_output.len() > 1 {
+            eprintln!("Multiple viewports defined. Only one is supported.")
+        }
+
+        if viewport_output.len() != 1 {
+            eprintln!("Viewport not defined")
+        }
+
+        let egui_viewport_cmds = if viewport_id == &root_id {
+            let root_viewport_output = viewport_output[&root_id].clone();
+            root_viewport_output.commands
+        } else {
+            eprintln!("viewport is not root");
+            Vec::new()
+        };
+
+        for command in &egui_viewport_cmds {
+            match command {
+                egui::ViewportCommand::Close => {
+                    self.egui_viewport_info
+                        .events
+                        .push(egui::ViewportEvent::Close);
+                }
+                _ => {
+                    //TODO
+                }
+            }
+        }
+
+        //println!("{:?}", self.egui_viewport_builder);
+        println!("After: {:?}", &egui_viewport_cmds);
 
         if self.shapes.is_some() {
             eprintln!("Egui contents not drawn. You need to call `draw` after calling `run`");
