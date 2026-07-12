@@ -184,7 +184,7 @@ impl EguiMq {
 
         let full_output = self
             .egui_ctx
-            .run(self.egui_input.take(), |egui_ctx| run_ui(mq_ctx, egui_ctx));
+            .run_ui(self.egui_input.take(), |egui_ctx| run_ui(mq_ctx, egui_ctx));
 
         let egui::FullOutput {
             platform_output,
@@ -267,6 +267,7 @@ impl EguiMq {
             modifiers,
             unit: egui::MouseWheelUnit::Line,
             delta,
+            phase: egui::TouchPhase::Move,
         });
     }
 
